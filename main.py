@@ -24,6 +24,7 @@ addr_2 = None
 
 image_nr = 0
 
+# Saves photo from pi stream
 def save_photo():
 	global image_nr
 	image_nr += 1
@@ -36,12 +37,13 @@ def reset_tower():
 		time.sleep(0.05)
 		c_1.send('tower_left')
 
+def tower_center():
+	c_1.send('tower_center')
+
 def contrast_img(img=None):
 
 	global image_nr
 	Z = img.reshape((-1,3))
-
-	
 
 	# convert to np.float32
 	Z = np.float32(Z)
@@ -61,17 +63,19 @@ def contrast_img(img=None):
 	
 	find_tank(img=res2)
 
+#Crop image to remove tank pipa and left and right side of blanket
 def crop_img():
 
 	global image_nr
-	
+	# Crop image and save it in ./cropped/
 	img = cv2.imread("photos/tank_" + str(image_nr) + ".jpg")
 	img_crop = img[100:-165, 125:-160]
 	cv2.imwrite('cropped/tank_' + str(image_nr) + '.jpg',img_crop)
+
+	# Convert cropped image to contrast image
 	contrast_img(img=img_crop)
 	
-	
-
+# Convert tank box to voc format
 def convert(size, box):
 	dw = 1./size[0]
 	dh = 1./size[1]
@@ -85,11 +89,11 @@ def convert(size, box):
 	h = h*dh
 	return (x,y,w,h)
 
+# Find tank box in contrast image
 def find_tank(img=None):
 	
 	global image_nr
-	print('in find tank')
-
+	
 	image_height =  215
 	image_width = 355
 
@@ -167,76 +171,54 @@ def find_tank(img=None):
 			continue  # only executed if the inner loop did NOT break
 	    	break  # only executed if the inner loop DID break
 
-
-
-	#print min_x, min_y, max_x, max_y
-
+	# Makes a recangle arount tank and saves it in /box/
 	cv2.rectangle(image, (min_x, min_y), (max_x, max_y), (255,0,0), 2)
 	cv2.imwrite('box/tank_' + str(image_nr) + '.jpg', image)
-	#dire = "labels/tank_" + str(nr) + ".txt"
-	#print dire
-	text_file = open("labels/tank_" + str(image_nr) + ".txt", "w")
-	#text_file.write("1\n")
-
-
-	#min_x += 180
-	#max_x += 180
-	#min_y += 200
-	#max_y += 200
-
-	width_x = max_x - min_x
-	width_y = max_y - min_y
 	
-	image_height =  215
-	image_width = 355
-
-	#image_h = 480
-	#image_w = 640
-
 	b = (float(min_x), float(max_x), float(min_y), float(max_y))
 	bb = convert((image_width,image_height), b)
-	print 'now'
-	print bb
-	print bb[0]
 
-	#text_file.write("%s %s %s %s", min_x, min_y, max_x, max_y)
+	# Creates a txt file with voc format in /labels/
+	text_file = open("labels/tank_" + str(image_nr) + ".txt", "w")
 	text_file.write('0 ' + str(bb[0]) + ' '+ str(bb[1]) + ' ' + str(bb[2]) + ' '+ str(bb[3]))
 	text_file.close()
-	
+
+# Run all Positions tank can be in
 def all_pos():
-
+	
+	# Moves tower to maximum left position
 	reset_tower()
+
 	tower_left = True
+	
+	# Turn tank on step left apox 50 steps to make full 360 rotation
+	for tank_pos in range(0,50):
 
-
-	for tank_pos in range(0,100):
 		c_1.send('left')
 		time.sleep(1)
 		save_photo()
 		time.sleep(0.01)
-
 		
-		if tower_left :
-			print(tower_left)
-
+		if tower_left:
+			
+			# For all positions tower can be in 800-2500
 			for tower_pos in range(0,40):
 				
 				c_1.send('tower_right')
 				time.sleep(0.5)
-
 				save_photo()
 				time.sleep(0.01)
 
 			tower_left = False
 		else:
-			print(tower_left)
+			# For all positions tower can be in 800-2500
 			for tower_pos in range(0,40):
 
 				c_1.send('tower_left')
 				time.sleep(0.5)
-				
 				save_photo()
 				time.sleep(0.01)
+
 			tower_left = True
 
 s.listen(5)
@@ -262,21 +244,13 @@ while 1:
     if(c_1):
 	break
 
-#up, down, left right
-#tower_right
 
-    #c.send(data)
-print('after')
 
 #for tank_pos in range(0,200):
 	#c_1.send('up')
 	#time.sleep(0.1)
 
 
-
-
-print('done')
-time.sleep(10)
 all_pos()
 
 
